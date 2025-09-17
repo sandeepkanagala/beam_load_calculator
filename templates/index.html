@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Structural Load Calculator (SFD, BMD & Deflection)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,700">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script src="{{ url_for('static', filename='login.js') }}"></script>
+  <script src="{{ url_for('static', filename='chart-script.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+
+<body>
+  <h2>🏗️ Structural Load Analysis</h2>
+  <div class="dark-mode-toggle">
+  <label class="switch">
+    <input type="checkbox" id="modeSwitch">
+    <span class="slider"></span>
+  </label>
+</div>
+
+
+
+  <form method="post" action="/calculate">
+
+   <!-- <label>Beam Type:</label>
+    <select name="beamType" required>
+      <option value="simply_supported">Simply Supported</option>
+      <option value="cantilever">Cantilever</option>
+      <option value="fixed">Fixed</option>
+      <option value="continuous">Continuous (2-span)</option>
+      <option value="overhanging">Overhanging</option>
+    </select><br><br>-->
+    
+    <label>Beam Length (m):</label>
+    <input type="number" step="any" name="length" required><br><br>
+
+
+    <label>Load Type:</label>
+    <select name="loadType" id="loadType" onchange="showFields()">
+      <option value="point_center">Point Load at Center</option>
+      <option value="point_anywhere">Point Load at Any Position</option>
+      <option value="udl">Uniformly Distributed Load (UDL)</option>
+      <option value="uvl">Uniformly Varying Load (UVL)</option>
+      <option value="moment">Moment Applied</option>
+    </select><br><br>
+
+    <div id="point_center" style="display:none;">
+      <label>Load P (kN):</label>
+      <input type="number" step="any" name="P"><br>
+    </div>
+
+    <div id="point_anywhere" style="display:none;">
+      <label>Load P (kN):</label>
+      <input type="number" step="any" name="P"><br>
+      <label>Distance a from Left (m):</label>
+      <input type="number" step="any" name="a"><br>
+    </div>
+
+    <div id="udl" style="display:none;">
+      <label>UDL w (kN/m):</label>
+      <input type="number" step="any" name="w"><br>
+    </div>
+
+    <div id="uvl" style="display:none;">
+      <label>Max w (kN/m at free end):</label>
+      <input type="number" step="any" name="w_max"><br>
+    </div>
+
+    <div id="moment" style="display:none;">
+      <label>Moment M (kNm):</label>
+      <input type="number" step="any" name="M_applied"><br>
+    </div>
+
+    <label>Building Type:</label>
+<select name="buildingType">
+  <option value="residential">Residential</option>
+  <option value="office">Office</option>
+  <option value="warehouse">Warehouse</option>
+  <option value="school">School</option>
+</select><br><br>
+
+    <hr>
+
+    <h3>🔩 Material and Section</h3>
+    <label>Material Type:</label>
+    <select name="material">
+      <option value="M20">Concrete M20</option>
+      <option value="M25">Concrete M25</option>
+      <option value="Fe415">Steel Fe415</option>
+      <option value="Fe500">Steel Fe500</option>
+    </select><br>
+
+    <label>Section Width (mm):</label>
+    <input type="number" name="b" required><br>
+
+    <label>Section Depth (mm):</label>
+    <input type="number" name="d" required><br><br>
+    
+<label for="combination_type">Select Combination Type:</label>
+<select name="combination_type" id="combination_type" required>
+  <option value="uls">Ultimate (Strength)</option>
+  <option value="sls">Serviceability</option>
+  <option value="compressibility">Compressibility</option>
+</select><br><br>
+
+
+    <button type="submit">Calculate</button>
+  </form>
+
+  {% if R1 is defined %}
+    <h1>Results:</h1>
+    <p><strong>Reaction at Support A (R1):</strong> {{ R1 }} kN</p>
+    <p><strong>Reaction at Support B (R2):</strong> {{ R2 }} kN</p>
+    <p><strong>Maximum Bending Moment:</strong> {{ M_max }} kNm</p>
+
+    {% if stress is defined and deflection is defined %}
+      <p><strong>Calculated Stress:</strong> {{ stress }} MPa</p>
+      <p><strong>Max Deflection:</strong> {{ deflection }} mm</p>
+      <p><strong>Deflection Status:</strong> {{ deflection_ok }}</p>
+    {% endif %}
+
+    <p><strong>Stress Status:</strong> {{ stress_ok }}</p>
+  {% endif %}
+
+{% if stress_warning %}
+  <p style="color:red;"><strong>{{ stress_warning }}</strong></p>
+  <p><strong>Suggestion:</strong> {{ stress_fix }}</p>
+{% endif %}
+
+{% if deflection_warning %}
+  <p style="color:red;"><strong>{{ deflection_warning }}</strong></p>
+  <p><strong>Suggestion:</strong> {{ deflection_fix }}</p>
+{% endif %}
+
+{% if ai_error_explanation %}
+  <div class="ai-section" style="margin-top: 20px;">
+    <h3>📉 Beam Failure Analysis (Failure Diagnosis): </h3>
+    <pre style="font-size: 15px;">{{ ai_error_explanation }}</pre>
+  </div>
+{% endif %}
+
+
+{% if ai_response %}
+  <div class="ai-section">
+    <h3>🤖 AI-Structuaral Advisor (Design Recommendations): </h3>
+    <pre style="font-size: 15px; line-height: 25px;">{{ ai_response }}</pre>
+  </div>
+{% endif %}
+
+ <h4>📊 Result Graphs:</h4>
+    <div class="graph-container">
+      <canvas id="sfdChart" width="600" height="200"></canvas>
+      <canvas id="bmdChart" width="600" height="200"></canvas>
+      <canvas id="deflectionChart" width="600" height="200"></canvas>
+      <!-- <canvas id="stressChart" width="400" height="200"></canvas> -->
+    </div>
+
+<div class="beam-diagram-container" style="text-align: center; margin-top: 30px;">
+  <h4>Beam Load Diagram</h4>
+  <canvas id="beam-diagram" width="800" height="250" style="border: 1px solid #ccc; max-width: 100%;"></canvas>
+</div>
+
+{% if beam_data %}
+<script>
+  window.beamData = {{ beam_data | tojson | safe }};
+</script>
+{% endif %}
+
+
+
+  {% if stress_profile %}
+  <script>
+    const stress_profile = {{ stress_profile | tojson }};
+  </script>
+  {% endif %}
+
+
+  
+{% if load_combos %}
+  <h5>🧮 Load Combinations (IS 875):</h5>
+  <ul style="list-style-type: none; padding-left: 50;">
+    {% for combo in load_combos %}
+      <li style="margin-bottom: 10px;"><strong>{{ combo.name }}:</strong> {{ combo.load }} kN</li>
+    {% endfor %}
+  </ul> 
+{% endif %} 
+   
+
+{% if x_vals and V_vals and M_vals and deflection_vals %}
+<script>
+  const xData = {{ x_vals | tojson | safe }};
+  const vData = {{ V_vals | tojson | safe }};
+  const mData = {{ M_vals | tojson | safe }};
+  const deflection_vals = {{ deflection_vals | tojson | safe }};
+</script>
+{% endif %}
+
+
+
+
+<h4>💰 Material Cost Estimation</h4>
+<table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; border-style: solid;">
+  <tr>
+    <th style="border: 2px solid #979696; padding: 8px;">Item</th>
+    <th style="border: 2px solid #979696; padding: 8px;">Quantity</th>
+    <th style="border: 2px solid #979696; padding: 8px;">Rate (INR)</th>
+    <th style="border: 2px solid #979696; padding: 8px;">Cost</th>
+  </tr>
+  <tr>
+    <td style="border: 2px solid #979696; padding: 8px;">Concrete</td>
+    <td style="border: 2px solid #979696; padding: 8px;">{{ volume_concrete }} m³</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹6000/m³</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹{{ cost_concrete }}</td>
+  </tr>
+  <tr>
+    <td style="border: 2px solid #979696; padding: 8px;">Steel (bars)</td>
+    <td style="border: 2px solid #979696; padding: 8px;">{{ steel_weight }} kg</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹65/kg</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹{{ cost_steel }}</td>
+  </tr>
+  <tr>
+    <td style="border: 2px solid #979696; padding: 8px;">Binding Wire</td>
+    <td style="border: 2px solid #979696; padding: 8px;">{{ binding_wire_weight }} kg</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹{{ binding_wire_rate }}/kg</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹{{ binding_wire_cost }}</td>
+  </tr>
+  <tr style="font-weight: bold;">
+    <td colspan="3" style="border: 2px solid #979696; padding: 8px;">Total</td>
+    <td style="border: 2px solid #979696; padding: 8px;">₹{{ total_cost }}</td>
+  </tr>
+</table>
+
+{% if stress_ratio is defined and deflection_ratio is defined %}
+  <div class="chart-section">
+    <h3>📊 Beam Safety Status</h3>
+    <canvas id="beamSafetyChart"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const ctx = document.getElementById('beamSafetyChart').getContext('2d');
+      const beamChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Stress/Fy', 'Deflection/Limit'],
+          datasets: [{
+            label: 'Utilization Ratio',
+            data: [{{ stress_ratio }}, {{ deflection_ratio }}],
+            backgroundColor: [
+              'rgba(72, 202, 228, 0.6)',
+              'rgba(166, 121, 255, 0.6)'
+            ],
+            borderColor: [
+              'rgba(72, 202, 228, 1)',
+              'rgba(166, 121, 255, 1)'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 2,  
+          plugins: {
+            title: {
+              display: true,
+              text: 'Live Safety Margin Chart',
+              font: {
+                size: 14,
+                weight: 'bold'
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 1.6,
+              title: {
+                display: true,
+                text: 'Ratio'
+              }
+            }
+          }
+        }
+      });
+    </script>
+  </div>
+{% endif %}
+
+<div class="chatbox">
+  <h5>💬 Ask Structural Assistant</h5>
+
+  <textarea id="chatInput" rows="3" placeholder="Ask structural questions like: 'Why is moment diagram parabolic?'"></textarea>
+  
+  <button onclick="askAssistant()">Ask</button>
+  
+  <pre id="chatResponse"></pre>
+</div>
+
+
+
+
+</body>
+</html>
