@@ -1,0 +1,65 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests (if any)
+      run: |
+        echo "Running basic checks..."
+        python -c "import app; print('✅ App imports successfully')"
+    
+    # Heroku Deployment
+    - name: Deploy to Heroku
+      if: ${{ secrets.HEROKU_API_KEY != '' }}
+      uses: akhileshns/heroku-deploy@v3.12.12
+      with:
+        heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+        heroku_app_name: ${{secrets.HEROKU_APP_NAME}}
+        heroku_email: ${{secrets.HEROKU_EMAIL}}
+        appdir: "."
+        env: |
+          MONGO_URI=${{secrets.MONGO_URI}}
+          GROQ_API_KEY=${{secrets.GROQ_API_KEY}}
+          SECRET_KEY=${{secrets.SECRET_KEY}}
+          FLASK_DEBUG=False
+    
+    # Railway Deployment (via Railway CLI)
+    - name: Deploy to Railway
+      if: ${{ secrets.RAILWAY_TOKEN != '' }}
+      run: |
+        npm install -g @railway/cli
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
+    
+    # Render Deployment (via API)
+    - name: Deploy to Render
+      if: ${{ secrets.RENDER_API_KEY != '' }}
+      run: |
+        curl -X POST "https://api.render.com/deploy/srv/${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}"
+    
+    - name: Deployment Status
+      run: |
+        echo "✅ Deployment workflow completed"
+

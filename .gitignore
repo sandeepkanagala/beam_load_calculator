@@ -1,17 +1,52 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-
-# Virtual environments
-venv/
+*$py.class
+*.so
+.Python
 env/
+venv/
 ENV/
-.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Environment variables
 .env
+.env.local
 
-# VS Code settings (optional)
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+__pycache__/
+*.pyc
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+
+# Logs
+*.log

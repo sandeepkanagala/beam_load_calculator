@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from flask_pymongo import PyMongo
 from beam_logic import (
     calculate_all,
@@ -20,12 +20,42 @@ import numpy as np
 import datetime
 import traceback
 import uuid
+import os
+from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, auth
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 
-# 🔌 MongoDB Local Compass connection
-app.config["MONGO_URI"] = "mongodb://localhost:27017/beamdb"
+# 🔌 MongoDB connection - uses environment variable or defaults to local
+mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/beamdb")
+app.config["MONGO_URI"] = mongo_uri
 mongo = PyMongo(app)
+
+# 🔥 Firebase Admin initialization (optional - only if FIREBASE_CREDENTIALS is set)
+firebase_initialized = False
+firebase_creds = os.getenv("FIREBASE_CREDENTIALS")
+if firebase_creds:
+    try:
+        import json
+        # Check if it's a JSON string or file path
+        if firebase_creds.startswith("{") or firebase_creds.startswith("["):
+            # It's a JSON string
+            cred_dict = json.loads(firebase_creds)
+            cred = credentials.Certificate(cred_dict)
+        else:
+            # It's a file path
+            cred = credentials.Certificate(firebase_creds)
+        firebase_admin.initialize_app(cred)
+        firebase_initialized = True
+        print("✅ Firebase Admin initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Firebase initialization failed: {e}")
+        print("   Continuing without Firebase authentication verification")
 
 def safe_float(value, default=0.0):
     try:
@@ -237,6 +267,32 @@ def calculate():
         traceback.print_exc()
         return render_template('index.html', error=f"Calculation Error: {e}")
 
+@app.route("/verify_token", methods=["POST"])
+def verify_token():
+    """Verify Firebase ID token"""
+    try:
+        data = request.get_json()
+        id_token = data.get("idToken")
+        
+        if not id_token:
+            return jsonify({"error": "No token provided"}), 400
+        
+        if firebase_initialized:
+            # Verify the token using Firebase Admin SDK
+            decoded_token = auth.verify_id_token(id_token)
+            session["user_id"] = decoded_token["uid"]
+            session["user_email"] = decoded_token.get("email", "")
+            return jsonify({"success": True, "uid": decoded_token["uid"]})
+        else:
+            # If Firebase Admin is not configured, just accept the token
+            # (for development/testing purposes)
+            session["user_id"] = "dev_user"
+            session["user_email"] = "dev@example.com"
+            return jsonify({"success": True, "message": "Token accepted (dev mode)"})
+    except Exception as e:
+        print(f"Token verification error: {e}")
+        return jsonify({"error": "Token verification failed"}), 401
+
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
@@ -257,4 +313,6 @@ def get_projects():
     return jsonify(projects)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)
