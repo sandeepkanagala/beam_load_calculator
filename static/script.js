@@ -10,7 +10,6 @@ function showFields() {
     }
   });
 }
-
 // Initialize page functionality on load
 document.addEventListener("DOMContentLoaded", () => {
   // Load type handler
@@ -19,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (loadType) {
     loadType.addEventListener("change", showFields);
   }
-
   // Dark mode toggle handler
   const toggleSwitch = document.getElementById("modeSwitch");
   const body = document.body;
@@ -38,7 +36,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
 // GPT-powered Structural Assistant
 async function askAssistant() {
   const inputField = document.getElementById("chatInput");

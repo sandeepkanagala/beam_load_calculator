@@ -66,7 +66,6 @@ button:hover {
   margin-top: 30px;
 }
 
-
 .graph-container {
   display: flex;
   flex-wrap: wrap;
@@ -113,7 +112,6 @@ h5 {
   font-weight: bold;
 }
 
-
 body.dark-mode {
   background-color: #121212;
   color: #f0f0f0;
@@ -134,7 +132,6 @@ body.dark-mode .graph-container canvas {
   background: #222;
   border-color: #444;
 }
-
 
 .dark-mode-toggle {
   position: fixed;
@@ -242,7 +239,6 @@ body.dark-mode {
   max-width: 100%;
   height: auto;
 }
-
 
 .beam-info-text {
   text-align: center;

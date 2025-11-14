@@ -13,7 +13,7 @@ User asked: "{user_query}"
 Answer clearly with explanations related to structural load analysis, beam behavior, material advice, or design checks.
 """
     response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": "You are a structural engineering assistant."},
             {"role": "user", "content": prompt}

@@ -26,15 +26,7 @@
 
   <form method="post" action="/calculate">
 
-   <!-- <label>Beam Type:</label>
-    <select name="beamType" required>
-      <option value="simply_supported">Simply Supported</option>
-      <option value="cantilever">Cantilever</option>
-      <option value="fixed">Fixed</option>
-      <option value="continuous">Continuous (2-span)</option>
-      <option value="overhanging">Overhanging</option>
-    </select><br><br>-->
-    
+   
     <label>Beam Length (m):</label>
     <input type="number" step="any" name="length" required><br><br>
 
@@ -42,7 +34,7 @@
     <label>Load Type:</label>
     <select name="loadType" id="loadType" onchange="showFields()">
       <option value="point_center">Point Load at Center</option>
-      <option value="point_anywhere">Point Load at Any Position</option>
+      <!-- <option value="point_anywhere">Point Load at Any Position</option> -->
       <option value="udl">Uniformly Distributed Load (UDL)</option>
       <option value="uvl">Uniformly Varying Load (UVL)</option>
       <option value="moment">Moment Applied</option>
@@ -100,13 +92,11 @@
     <label>Section Depth (mm):</label>
     <input type="number" name="d" required><br><br>
     
-<label for="combination_type">Select Combination Type:</label>
-<select name="combination_type" id="combination_type" required>
-  <option value="uls">Ultimate (Strength)</option>
-  <option value="sls">Serviceability</option>
-  <option value="compressibility">Compressibility</option>
-</select><br><br>
-
+<label for="limit_state">Select Limit State</label>
+        <select name="limit_state" id="limit_state">
+            <option value="collapse">Limit State of Collapse</option>
+            <option value="serviceability">Limit State of Serviceability</option>
+        </select>
 
     <button type="submit">Calculate</button>
   </form>
@@ -170,26 +160,22 @@
 </script>
 {% endif %}
 
-
-
   {% if stress_profile %}
   <script>
     const stress_profile = {{ stress_profile | tojson }};
   </script>
   {% endif %}
 
-
+    {% if results %}
+    <h3>🧮 Load Combinations (IS 875):</h3>
+    <table>
+        <tr><th>Combination</th><th>Factored Load (kN)</th></tr>
+        {% for combo, val in results.items() %}
+        <tr><td>{{ combo }}</td><td>{{ "%.2f"|format(val) }}</td></tr>
+        {% endfor %}
+    </table>
+    {% endif %}
   
-{% if load_combos %}
-  <h5>🧮 Load Combinations (IS 875):</h5>
-  <ul style="list-style-type: none; padding-left: 50;">
-    {% for combo in load_combos %}
-      <li style="margin-bottom: 10px;"><strong>{{ combo.name }}:</strong> {{ combo.load }} kN</li>
-    {% endfor %}
-  </ul> 
-{% endif %} 
-   
-
 {% if x_vals and V_vals and M_vals and deflection_vals %}
 <script>
   const xData = {{ x_vals | tojson | safe }};
@@ -198,9 +184,6 @@
   const deflection_vals = {{ deflection_vals | tojson | safe }};
 </script>
 {% endif %}
-
-
-
 
 <h4>💰 Material Cost Estimation</h4>
 <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; border-style: solid;">
@@ -298,9 +281,5 @@
   
   <pre id="chatResponse"></pre>
 </div>
-
-
-
-
 </body>
 </html>

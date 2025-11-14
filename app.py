@@ -5,8 +5,9 @@ from beam_logic import (
     get_material_properties,
     rectangular_section,
     stress_check,
-    generate_load_combinations,
-    map_input_to_loads,
+    calculate_loads, 
+    factored_loads,
+
 )
 from suggestions import (
     suggest_fix_for_stress_warning,
@@ -45,17 +46,17 @@ def calculate():
         form = request.form
         load_type = form.get("loadType", "")
         building_type = form.get("buildingType", "residential")
-        length = safe_float(form.get("length"))  
+        length = safe_float(form.get("length")) 
 
         params = {k: v if isinstance(v, str) else v[0] for k, v in form.items()}
         print(f"📥 Received params: {params}")
 
-        b = safe_float(params.get("b")) / 1000  
-        d = safe_float(params.get("d")) / 1000  
+        b = safe_float(params.get("b")) / 1000 
+        d = safe_float(params.get("d")) / 1000 
 
         material_key = params.get("material", "M20")
         material = get_material_properties(material_key)
-        E_modulus = material.get("E", 25e9)  
+        E_modulus = material.get("E", 25e9) 
 
         if load_type == "udl":
             w = safe_float(params.get("w")) * 1000 
@@ -64,10 +65,10 @@ def calculate():
             P = safe_float(params.get("P")) * 1000
             params["P"] = P
         elif load_type == "uvl":
-            w_max = safe_float(params.get("w_max")) * 1000  
+            w_max = safe_float(params.get("w_max")) * 1000 
             params["w_max"] = w_max
         elif load_type == "moment":
-            M_applied = safe_float(params.get("M_applied")) * 1000  
+            M_applied = safe_float(params.get("M_applied")) * 1000 
             params["M_applied"] = M_applied
 
         section = rectangular_section(b, d)
@@ -82,18 +83,31 @@ def calculate():
         elif load_type == "moment":
             val = params.get("M_applied", 0)
 
-        dl, ll, wl, eq = map_input_to_loads(load_type, val)
-        
-        combination_mode = form.get("combination_mode", "strength")
-        try:
-            load_combos = generate_load_combinations(dl, ll, wl, eq, mode=combination_mode)
-        except TypeError:
-            load_combos = generate_load_combinations(dl, ll, wl, eq)
+        results = None
+        dl = il = wl = None
 
-        volume_concrete = b * d * length  
-        steel_weight = volume_concrete * 120  
-        cost_concrete = volume_concrete * 6000  
-        cost_steel = steel_weight * 65  
+        if request.method == "POST":
+            limit_state = request.form.get("limit_state")
+
+            # Inputs
+            length = safe_float(request.form.get("length"))
+            b = safe_float(request.form.get("b")) / 1000  # convert mm→m
+            d = safe_float(request.form.get("d")) / 1000
+            P = safe_float(request.form.get("P"))
+            w = safe_float(request.form.get("w"))
+            w_max = safe_float(request.form.get("w_max"))
+            M_applied = safe_float(request.form.get("M_applied"))
+
+            # Calculate loads
+            dl, il, wl = calculate_loads(length, b, d, P, w, w_max, M_applied)
+
+            # Factored loads
+            results = factored_loads(limit_state, dl, il, wl)
+        
+        volume_concrete = b * d * length 
+        steel_weight = volume_concrete * 120 
+        cost_concrete = volume_concrete * 6000 
+        cost_steel = steel_weight * 65 
         binding_wire_weight = steel_weight * 0.01
         binding_wire_cost = binding_wire_weight * 72
         total_cost = cost_concrete + cost_steel + binding_wire_cost
@@ -101,7 +115,8 @@ def calculate():
         R1, R2, M_max, x_vals, V_vals, M_vals, deflection_vals, max_deflection = calculate_all(
             length, load_type, params, E=E_modulus, I=section["I"]
         )
-
+        # R1, R2, M_max, delta_max, x_vals, V_vals, M_vals, deflection_vals = calculate_all(length, load_type, params)
+        
         stress, stress_ok = stress_check(M_max * 1e6, section["Z"] * 1e9, material.get("fck", 0))
         stress = round(stress, 2)
         stress_warning = stress_fix = ""
@@ -117,7 +132,7 @@ def calculate():
         }
 
         deflection = max_deflection
-        deflection_limit = length * 1000 / 250  
+        deflection_limit = length * 1000 / 250 
         deflection_ok = deflection <= deflection_limit
 
         deflection_warning = deflection_fix = ""
@@ -196,7 +211,10 @@ def calculate():
                                deflection_ok="✅ OK" if deflection_ok else "❌ Exceeds Limit",
                                deflection_warning=deflection_warning,
                                deflection_fix=deflection_fix,
-                               load_combos=load_combos,
+                               results=results,
+                               dl=dl,
+                               il=il,
+                               wl=wl,
                                building_type=building_type,
                                stress_profile=stress_profile,
                                ai_response=ai_response,
