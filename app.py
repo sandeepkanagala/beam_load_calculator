@@ -159,10 +159,13 @@ def calculate():
         
         stress, stress_ok = stress_check(M_max * 1e6, section["Z"] * 1e9, material.get("fck", 0))
         stress = round(stress, 2)
-        stress_warning = stress_fix = ""
+        stress_warning = ""
+        stress_fix = ""
         if not stress_ok:
-            stress_warning = "⚠️ Warning: stress exceeds allowable limit!"
+            stress_warning = f"⚠️ Warning: Stress {stress} MPa exceeds allowable limit of {material.get('fck', 0)} MPa!"
             stress_fix = suggest_fix_for_stress_warning(stress, material_key)
+        else:
+            stress_fix = "✅ Stress is within acceptable limits."
 
         stress_ratio = round(stress / material.get("fck", 1), 2)
 
@@ -175,10 +178,13 @@ def calculate():
         deflection_limit = length * 1000 / 250 
         deflection_ok = deflection <= deflection_limit
 
-        deflection_warning = deflection_fix = ""
+        deflection_warning = ""
+        deflection_fix = ""
         if not deflection_ok:
             deflection_warning = f"⚠️ Warning: Deflection {round(deflection, 2)} mm exceeds limit of {round(deflection_limit, 2)} mm."
             deflection_fix = suggest_fix_for_deflection_warning(deflection, deflection_limit)
+        else:
+            deflection_fix = "✅ Deflection is within acceptable limits."
 
         deflection_ratio = round(deflection / deflection_limit, 2)
 
