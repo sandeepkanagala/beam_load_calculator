@@ -172,21 +172,31 @@ def calculate():
 
         deflection_ratio = round(deflection / deflection_limit, 2)
 
+        # Make AI calls optional to prevent timeouts - wrap in try/except
         ai_error_explanation = ""
-        if not stress_ok or not deflection_ok:
-            ai_error_explanation = langchain_error_explanation(
-                length=length,
-                b=b,
-                d=d,
-                material=material_key,
-                stress=stress,
-                stress_ok=stress_ok,
-                deflection=deflection,
-                deflection_ok=deflection_ok,
-                load_type=load_type
-            )
+        try:
+            if not stress_ok or not deflection_ok:
+                ai_error_explanation = langchain_error_explanation(
+                    length=length,
+                    b=b,
+                    d=d,
+                    material=material_key,
+                    stress=stress,
+                    stress_ok=stress_ok,
+                    deflection=deflection,
+                    deflection_ok=deflection_ok,
+                    load_type=load_type
+                )
+        except Exception as e:
+            print(f"⚠️ AI error explanation failed: {e}")
+            ai_error_explanation = "AI explanation temporarily unavailable."
 
-        ai_response = langchain_suggestions(building_type, length, load_type, val)
+        ai_response = ""
+        try:
+            ai_response = langchain_suggestions(building_type, length, load_type, val)
+        except Exception as e:
+            print(f"⚠️ AI suggestions failed: {e}")
+            ai_response = "AI suggestions temporarily unavailable."
 
         beam_data = {
             "_id": str(uuid.uuid4()),

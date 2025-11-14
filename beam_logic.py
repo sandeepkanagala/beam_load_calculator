@@ -31,8 +31,8 @@ def point_load_anywhere(L, P, a, E=2.5e7, I=8.33e-6):
     b = L - a
     R1 = (P * b) / L
     R2 = (P * a) / L
-    # Use a high number of points for smoother plots
-    x = np.linspace(0, L, 500)
+    # Reduced points for Render free tier to save memory
+    x = np.linspace(0, L, 100)
     # Shear and moment profiles
     V = np.piecewise(x, [x < a, x >= a], [lambda x: R1, lambda x: R1 - P])
     M = np.piecewise(x, [x < a, x >= a],
