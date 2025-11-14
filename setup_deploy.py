@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Automatic Deployment Setup Script
 Helps configure and deploy the Beam Load Calculator
@@ -9,6 +10,12 @@ import sys
 import subprocess
 import json
 from pathlib import Path
+
+# Fix Windows console encoding
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 def print_header(text):
     print(f"\n{'='*60}")
