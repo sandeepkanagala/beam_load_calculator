@@ -32,9 +32,19 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 
 # 🔌 MongoDB connection - uses environment variable or defaults to local
-mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/beamdb")
-app.config["MONGO_URI"] = mongo_uri
-mongo = PyMongo(app)
+mongo_uri = os.getenv("MONGO_URI", "")
+mongo = None
+if mongo_uri and mongo_uri != "mongodb://localhost:27017/beamdb":
+    try:
+        app.config["MONGO_URI"] = mongo_uri
+        mongo = PyMongo(app)
+        print("✅ MongoDB connected successfully")
+    except Exception as e:
+        print(f"⚠️ MongoDB connection failed: {e}")
+        mongo = None
+else:
+    print("⚠️ MONGO_URI not set - MongoDB features disabled (calculations still work)")
+    mongo = None
 
 # 🔥 Firebase Admin initialization (optional - only if FIREBASE_CREDENTIALS is set)
 firebase_initialized = False
@@ -172,18 +182,61 @@ def calculate():
 
         deflection_ratio = round(deflection / deflection_limit, 2)
 
-        # Disable AI calls temporarily to prevent timeouts on Render free tier
-        # AI features can be re-enabled when upgrading to paid plan
+        # AI suggestions with timeout protection
         ai_error_explanation = ""
         ai_response = ""
         
-        # Uncomment below to enable AI (requires paid Render plan):
-        # try:
-        #     if not stress_ok or not deflection_ok:
-        #         ai_error_explanation = langchain_error_explanation(...)
-        # except Exception as e:
-        #     print(f"⚠️ AI error explanation failed: {e}")
-        #     ai_error_explanation = "AI explanation temporarily unavailable."
+        # Try AI suggestions with timeout (non-blocking)
+        try:
+            if not stress_ok or not deflection_ok:
+                # Use threading to prevent blocking
+                import threading
+                ai_result = [None]
+                
+                def get_ai_explanation():
+                    try:
+                        ai_result[0] = langchain_error_explanation(
+                            length=length,
+                            b=b,
+                            d=d,
+                            material=material_key,
+                            stress=stress,
+                            stress_ok=stress_ok,
+                            deflection=deflection,
+                            deflection_ok=deflection_ok,
+                            load_type=load_type
+                        )
+                    except:
+                        pass
+                
+                thread = threading.Thread(target=get_ai_explanation)
+                thread.daemon = True
+                thread.start()
+                thread.join(timeout=5)  # 5 second timeout
+                ai_error_explanation = ai_result[0] if ai_result[0] else ""
+        except Exception as e:
+            print(f"⚠️ AI error explanation failed: {e}")
+            ai_error_explanation = ""
+        
+        # AI general suggestions with timeout
+        try:
+            import threading
+            ai_suggestion_result = [None]
+            
+            def get_ai_suggestions():
+                try:
+                    ai_suggestion_result[0] = langchain_suggestions(building_type, length, load_type, val)
+                except:
+                    pass
+            
+            thread2 = threading.Thread(target=get_ai_suggestions)
+            thread2.daemon = True
+            thread2.start()
+            thread2.join(timeout=5)  # 5 second timeout
+            ai_response = ai_suggestion_result[0] if ai_suggestion_result[0] else ""
+        except Exception as e:
+            print(f"⚠️ AI suggestions failed: {e}")
+            ai_response = ""
 
         beam_data = {
             "_id": str(uuid.uuid4()),
@@ -219,12 +272,13 @@ def calculate():
             }
         }
 
-        # 💾 Save beam_data to MongoDB (wrapped in try/except to prevent crashes)
-        try:
-            mongo.db.projects.insert_one(beam_data)
-        except Exception as e:
-            print(f"⚠️ MongoDB save failed (non-critical): {e}")
-            # Continue without saving - calculation results still work
+        # 💾 Save beam_data to MongoDB (only if MongoDB is configured)
+        if mongo:
+            try:
+                mongo.db.projects.insert_one(beam_data)
+            except Exception as e:
+                print(f"⚠️ MongoDB save failed (non-critical): {e}")
+                # Continue without saving - calculation results still work
 
         return render_template('index.html',
                                R1=round(R1, 2),
@@ -318,8 +372,13 @@ def chat():
 # 🧾 Optional API: Get all saved projects
 @app.route("/get_projects", methods=["GET"])
 def get_projects():
-    projects = list(mongo.db.projects.find({}, {"_id": 0}))
-    return jsonify(projects)
+    if not mongo:
+        return jsonify({"error": "MongoDB not configured"}), 503
+    try:
+        projects = list(mongo.db.projects.find({}, {"_id": 0}))
+        return jsonify(projects)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
