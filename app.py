@@ -172,31 +172,18 @@ def calculate():
 
         deflection_ratio = round(deflection / deflection_limit, 2)
 
-        # Make AI calls optional to prevent timeouts - wrap in try/except
+        # Disable AI calls temporarily to prevent timeouts on Render free tier
+        # AI features can be re-enabled when upgrading to paid plan
         ai_error_explanation = ""
-        try:
-            if not stress_ok or not deflection_ok:
-                ai_error_explanation = langchain_error_explanation(
-                    length=length,
-                    b=b,
-                    d=d,
-                    material=material_key,
-                    stress=stress,
-                    stress_ok=stress_ok,
-                    deflection=deflection,
-                    deflection_ok=deflection_ok,
-                    load_type=load_type
-                )
-        except Exception as e:
-            print(f"⚠️ AI error explanation failed: {e}")
-            ai_error_explanation = "AI explanation temporarily unavailable."
-
         ai_response = ""
-        try:
-            ai_response = langchain_suggestions(building_type, length, load_type, val)
-        except Exception as e:
-            print(f"⚠️ AI suggestions failed: {e}")
-            ai_response = "AI suggestions temporarily unavailable."
+        
+        # Uncomment below to enable AI (requires paid Render plan):
+        # try:
+        #     if not stress_ok or not deflection_ok:
+        #         ai_error_explanation = langchain_error_explanation(...)
+        # except Exception as e:
+        #     print(f"⚠️ AI error explanation failed: {e}")
+        #     ai_error_explanation = "AI explanation temporarily unavailable."
 
         beam_data = {
             "_id": str(uuid.uuid4()),
@@ -232,8 +219,12 @@ def calculate():
             }
         }
 
-        # 💾 Save beam_data to MongoDB
-        mongo.db.projects.insert_one(beam_data)
+        # 💾 Save beam_data to MongoDB (wrapped in try/except to prevent crashes)
+        try:
+            mongo.db.projects.insert_one(beam_data)
+        except Exception as e:
+            print(f"⚠️ MongoDB save failed (non-critical): {e}")
+            # Continue without saving - calculation results still work
 
         return render_template('index.html',
                                R1=round(R1, 2),
@@ -310,8 +301,16 @@ def chat():
         user_query = data.get("message", "")
         if not user_query:
             return jsonify({"response": "Please enter a valid question."})
-        response = structural_chatbot_response(user_query)
-        return jsonify({"response": response})
+        
+        # Temporarily disable AI chatbot on free tier to prevent timeouts
+        # Return a simple response instead
+        return jsonify({
+            "response": "AI chatbot is temporarily disabled on the free tier to ensure reliable calculations. Please upgrade to a paid plan for AI features, or use the calculation results which work perfectly!"
+        })
+        
+        # Uncomment below to enable AI chatbot (requires paid Render plan):
+        # response = structural_chatbot_response(user_query)
+        # return jsonify({"response": response})
     except Exception as e:
         print("Chatbot Error:", e)
         return jsonify({"response": "Sorry, the assistant is currently unavailable."})

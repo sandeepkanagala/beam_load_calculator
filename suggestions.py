@@ -7,14 +7,21 @@ from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    raise ValueError("❌ GROQ_API_KEY not found. Please set it in your .env file.")
-
-llm = ChatGroq(
-    api_key=GROQ_API_KEY,
-    temperature=0.2,
-    model="openai/gpt-oss-120b"
-)
+# Don't raise error - allow app to work without AI
+llm = None
+if GROQ_API_KEY and GROQ_API_KEY != "your-groq-api-key":
+    try:
+        llm = ChatGroq(
+            api_key=GROQ_API_KEY,
+            temperature=0.2,
+            model="openai/gpt-oss-120b",
+            timeout=10  # 10 second timeout
+        )
+    except Exception as e:
+        print(f"⚠️ Failed to initialize Groq LLM: {e}")
+        llm = None
+else:
+    print("⚠️ GROQ_API_KEY not found. AI features disabled.")
 
 # Prompt template of AI Structural advisor 
 template = """
@@ -44,14 +51,21 @@ prompt = ChatPromptTemplate.from_template(template)
 
 def langchain_suggestions(building_type, length, load_type, load_value):
     """Generate AI-based suggestions via LangChain and Groq."""
-    chain = prompt | llm
-    response = chain.invoke({
-        "building_type": building_type,
-        "length": length,
-        "load_type": load_type,
-        "load_value": load_value/1000
-    })
-    return response.content.strip()
+    if not llm:
+        return "AI suggestions temporarily disabled. Calculation results work perfectly!"
+    
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "building_type": building_type,
+            "length": length,
+            "load_type": load_type,
+            "load_value": load_value/1000
+        })
+        return response.content.strip()
+    except Exception as e:
+        print(f"LangChain suggestions error: {e}")
+        return "AI suggestions temporarily unavailable. Calculation results work perfectly!"
 
 
 # Engineering Heuristics-Based Functions
@@ -101,6 +115,10 @@ def suggest_fix_for_deflection_warning(deflection, limit):
 # when failure occurs
 
 def langchain_error_explanation(length, b, d, material, stress, stress_ok, deflection, deflection_ok, load_type):
+    """Generate AI-based error explanations via LangChain and Groq."""
+    if not llm:
+        return "AI explanations temporarily disabled. Check calculation results above."
+    
     prompt = f"""
 You are a structural engineering assistant. Do not include any asterisks (* or **) in your response.
 
@@ -122,9 +140,8 @@ Results:
 Keep the output concise and professional. Use line breaks for clarity where needed. 
 """
     try:
-        from langchain_groq import ChatGroq
-        llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
         response = llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else response
+        return response.content if hasattr(response, 'content') else str(response)
     except Exception as e:
-        return f"⚠️ AI explanation could not be generated: {e}"
+        print(f"LangChain error explanation error: {e}")
+        return "AI explanations temporarily unavailable. Check calculation results above."

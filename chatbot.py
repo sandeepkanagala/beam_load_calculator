@@ -3,22 +3,36 @@ from groq import Groq
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "your-groq-api-key"
 
-client = Groq(api_key=GROQ_API_KEY)
+# Only initialize if API key is valid
+client = None
+if GROQ_API_KEY and GROQ_API_KEY != "your-groq-api-key":
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+    except:
+        client = None
 
 def structural_chatbot_response(user_query):
-    prompt = f"""
+    if not client:
+        return "AI chatbot is temporarily disabled. Calculation features work perfectly!"
+    
+    try:
+        prompt = f"""
 You are a helpful structural engineering assistant.
 User asked: "{user_query}"
 
 Answer clearly with explanations related to structural load analysis, beam behavior, material advice, or design checks.
 """
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": "You are a structural engineering assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.6,
-        max_tokens=1000
-    )
-    return response.choices[0].message.content
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a structural engineering assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.6,
+            max_tokens=1000,
+            timeout=10  # 10 second timeout
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Chatbot error: {e}")
+        return "AI chatbot is temporarily unavailable. Calculation features work perfectly!"
