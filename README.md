@@ -9,7 +9,6 @@ A comprehensive web application for structural engineering calculations includin
 - **Stress & Deflection Checks**: Automatic validation against design limits
 - **Cost Estimation**: Material cost calculations (concrete, steel, binding wire)
 - **AI-Powered Suggestions**: Groq-powered chatbot and engineering recommendations
-- **Firebase Authentication**: Secure user authentication
 - **Data Persistence**: MongoDB integration for saving projects
 
 ## Tech Stack
@@ -18,7 +17,6 @@ A comprehensive web application for structural engineering calculations includin
 - **Database**: MongoDB
 - **Frontend**: HTML, CSS, JavaScript, Chart.js
 - **AI**: Groq API (LangChain)
-- **Authentication**: Firebase
 - **Deployment**: Gunicorn
 
 ## 🚀 Quick Automatic Deployment
@@ -46,7 +44,6 @@ The script will guide you through the entire deployment process automatically!
 - Python 3.11+
 - MongoDB (local or Atlas)
 - Groq API Key
-- Firebase Project (optional, for authentication)
 - Heroku CLI or Railway CLI (for automatic deployment)
 
 ## Installation
